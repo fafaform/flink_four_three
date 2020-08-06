@@ -10,7 +10,9 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
+import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 import org.apache.flink.streaming.util.serialization.JSONKeyValueDeserializationSchema;
@@ -18,6 +20,7 @@ import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.util.Properties;
 
 public class ReadFromKafka {
@@ -68,7 +71,22 @@ public class ReadFromKafka {
                         0
                 ));
             }
-        });
+        }).assignTimestampsAndWatermarks(new AssignerWithPeriodicWatermarks<Tuple7<Integer, Long, String, String, Double, String, Integer>>() {
+            private long MAX_TIMESTAMP;
+            @Nullable
+            @Override
+            public Watermark getCurrentWatermark() {
+                Watermark watermark = new Watermark(MAX_TIMESTAMP);
+                return watermark;
+            }
+
+            @Override
+            public long extractTimestamp(Tuple7<Integer, Long, String, String, Double, String, Integer> currentElement, long l) {
+                long currentWatermark = currentElement.f1;
+                MAX_TIMESTAMP = Math.max(currentWatermark, MAX_TIMESTAMP);
+                return currentElement.f1;
+            }
+        }).rebalance();
 
         //// PRODUCT KAFKA
         FlinkKafkaProducer<String> myProducer = new FlinkKafkaProducer(KAFKA_PRODUCER_TOPIC, new ProducerStringSerializationSchema(KAFKA_PRODUCER_TOPIC), properties, FlinkKafkaProducer.Semantic.EXACTLY_ONCE);
