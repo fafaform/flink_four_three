@@ -73,10 +73,11 @@ public class ReadFromKafka {
             }
         }).assignTimestampsAndWatermarks(new AssignerWithPeriodicWatermarks<Tuple7<Integer, Long, String, String, Double, String, Integer>>() {
             private long MAX_TIMESTAMP;
+            private final long maxOutOfOrderness = 10000;
             @Nullable
             @Override
             public Watermark getCurrentWatermark() {
-                Watermark watermark = new Watermark(MAX_TIMESTAMP);
+                Watermark watermark = new Watermark(MAX_TIMESTAMP - maxOutOfOrderness);
                 return watermark;
             }
 

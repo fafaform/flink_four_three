@@ -37,8 +37,10 @@ public class CountWithTimeoutFunction extends KeyedProcessFunction<Tuple, Tuple7
 
     @Override
     public void processElement(Tuple7<Integer, Long, String, String, Double, String, Integer> value, final Context ctx, Collector<Tuple6<Integer, Long, String, String, Double, String>> out) throws Exception {
-        if(ctx.timestamp() > ctx.timerService().currentWatermark() + (60000 * MINUTE) && ctx.timerService().currentWatermark() != 0){
-            onTimer(ctx.timestamp(), new OnTimerContext() {
+        List<JsonObject> current = state.value();
+        if(current != null && ctx.timestamp() >= (firstData.value() + (60000 * MINUTE))){
+            timeDiff.update(ctx.timerService().currentProcessingTime() - ctx.timestamp());
+            onTimer(ctx.timerService().currentProcessingTime(), new OnTimerContext() {
                 @Override
                 public TimeDomain timeDomain() {
                     return null;
@@ -66,7 +68,7 @@ public class CountWithTimeoutFunction extends KeyedProcessFunction<Tuple, Tuple7
             }, out);
         }
         // retrieve the current count
-        List<JsonObject> current = state.value();
+        current = state.value();
         if (current == null) {
             current = new ArrayList<JsonObject>();
 
